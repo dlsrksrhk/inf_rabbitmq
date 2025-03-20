@@ -1,42 +1,32 @@
 package sweet.dh.hellowmessagequeue.mq;
 
-import org.springframework.amqp.core.AcknowledgeMode;
+import org.springframework.amqp.core.Binding;
+import org.springframework.amqp.core.BindingBuilder;
+import org.springframework.amqp.core.FanoutExchange;
 import org.springframework.amqp.core.Queue;
-import org.springframework.amqp.rabbit.connection.ConnectionFactory;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
-import org.springframework.amqp.rabbit.listener.adapter.MessageListenerAdapter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-
 @Configuration
 public class RabbitMQConfig {
-    public static final String QUEUE_NAME = "WorkQueue";
+    public static final String QUEUE_NAME = "notificationQueue";
+    public static final String FANOUT_EXCHANGE = "notificationExchange";
+
 
     @Bean
-    public Queue queue() {
-        return new Queue(QUEUE_NAME, true);
+    public Queue notificationQueue() {
+        return new Queue(QUEUE_NAME, false); // 메시지는 volatile로 설정
     }
 
     @Bean
-    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
-        return new RabbitTemplate(connectionFactory);
+    public FanoutExchange fanoutExchange() {
+        // 메시지를 수신하면 연결된 모든 큐로 브로드캐스트
+        return new FanoutExchange(FANOUT_EXCHANGE);
     }
 
     @Bean
-    public SimpleMessageListenerContainer container(ConnectionFactory connectionFactory,
-                                                    MessageListenerAdapter listenerAdapter) {
-        SimpleMessageListenerContainer container = new SimpleMessageListenerContainer();
-        container.setConnectionFactory(connectionFactory);
-        container.setQueueNames(QUEUE_NAME);
-        container.setMessageListener(listenerAdapter);
-        container.setAcknowledgeMode(AcknowledgeMode.AUTO);//기본값이지만 명시
-        return container;
-    }
-
-    @Bean
-    public MessageListenerAdapter listenerAdapter(WorkQueueConsumer workQueueTask) {
-        return new MessageListenerAdapter(workQueueTask, "workQueueTask");
+    public Binding bindNotification(Queue notificationQueue, FanoutExchange fanoutExchange) {
+        // BindingBuilder.bind().to() 를 통해 큐와 익스체인지를 연결
+        return BindingBuilder.bind(notificationQueue).to(fanoutExchange);
     }
 }
